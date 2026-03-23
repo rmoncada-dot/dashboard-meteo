@@ -7,9 +7,9 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION:     europe-west8
-  SERVICE:    dashboard-meteo
-  IMAGE:      gcr.io/${{ secrets.GCP_PROJECT_ID }}/dashboard-meteo
+  REGION: europe-west8
+  SERVICE: dashboard-meteo
+  IMAGE: gcr.io/${{ secrets.GCP_PROJECT_ID }}/dashboard-meteo
 
 jobs:
   deploy:
