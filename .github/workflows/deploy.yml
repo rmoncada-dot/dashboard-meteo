@@ -6,38 +6,35 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID:  ${{ secrets.GCP_PROJECT_ID }}
-  REGION:      europe-west8          # Milano — cambia se preferisci altra region
-  SERVICE:     dashboard-meteo
-  IMAGE:       gcr.io/${{ secrets.GCP_PROJECT_ID }}/dashboard-meteo
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION:     europe-west8
+  SERVICE:    dashboard-meteo
+  IMAGE:      gcr.io/${{ secrets.GCP_PROJECT_ID }}/dashboard-meteo
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Checkout codice
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Autenticazione Google Cloud
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 3. Setup gcloud CLI
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # 4. Build e push immagine Docker su Container Registry
-      - name: Build and push Docker image
-        run: |
-          gcloud builds submit \
-            --tag $IMAGE \
-            --project $PROJECT_ID
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
 
-      # 5. Deploy su Cloud Run
+      - name: Build Docker image
+        run: docker build -t $IMAGE .
+
+      - name: Push Docker image
+        run: docker push $IMAGE
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy $SERVICE \
@@ -51,13 +48,10 @@ jobs:
             --port 8080 \
             --project $PROJECT_ID
 
-      # 6. Stampa URL del servizio
       - name: Get service URL
         run: |
-          URL=$(gcloud run services describe $SERVICE \
+          gcloud run services describe $SERVICE \
             --platform managed \
             --region $REGION \
             --format 'value(status.url)' \
-            --project $PROJECT_ID)
-          echo "✅ Dashboard live: $URL"
-          echo "SERVICE_URL=$URL" >> $GITHUB_ENV
+            --project $PROJECT_ID
