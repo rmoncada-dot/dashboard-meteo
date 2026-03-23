@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Data files (non committare CSV con dati sensibili)
+*.csv
+*.json
+!streamlit/requirements.txt
+
+# Excel
+*.xlsx
+*.xlsm
+*.xls
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# GCP keys (MAI committare le chiavi!)
+*.json
+gcp-key*.json
+service-account*.json

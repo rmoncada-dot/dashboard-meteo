@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Stazioni Meteo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #eef2f8; color: #1a2035; font-size: 14px; }
+
+/* ---- HEADER ---- */
+header { background: #1F4E79; color: #fff; padding: 13px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+header h1 { font-size: 15px; font-weight: 700; }
+header p  { font-size: 11px; opacity: .75; margin-top: 2px; }
+#badge { background: rgba(255,255,255,.15); border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+
+/* ---- STATION BAR ---- */
+.station-bar { background: #163d61; padding: 0 22px; display: flex; align-items: center; gap: 0; overflow-x: auto; }
+.stab { padding: 10px 18px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.6); cursor: pointer; border: none; background: transparent; border-bottom: 3px solid transparent; white-space: nowrap; }
+.stab:hover { color: #fff; }
+.stab.active { color: #fff; border-bottom-color: #5ba3d9; }
+.stab.empty { color: rgba(255,255,255,.3); font-style: italic; }
+.stab.empty.active { color: rgba(255,255,255,.7); border-bottom-color: #5ba3d9; }
+.add-station-btn { padding: 8px 14px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); cursor: pointer; border: none; background: transparent; white-space: nowrap; margin-left: 4px; }
+.add-station-btn:hover { color: #fff; }
+
+/* ---- IMPORT / STATUS BAR ---- */
+.import-bar { background: #fff; border-bottom: 1px solid #dde6f0; padding: 8px 22px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 42px; }
+.btn { padding: 6px 14px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; background: #2E75B6; color: #fff; }
+.btn:hover { background: #1F4E79; }
+.btn-danger { background: #c0392b; }
+.btn-danger:hover { background: #922b21; }
+.ftag { background: #dceef9; border-radius: 14px; padding: 3px 10px; font-size: 11px; color: #1F4E79; }
+.station-name-input { border: 1px solid #bcd; border-radius: 5px; padding: 4px 9px; font-size: 12px; color: #1F4E79; width: 160px; }
+
+/* ---- WARN ---- */
+.warn { background: #fff8e1; border-left: 3px solid #f0b429; padding: 7px 14px; font-size: 12px; color: #7f5c00; margin: 8px 22px 0; border-radius: 0 4px 4px 0; }
+
+/* ---- CONTENT TABS ---- */
+.nav { display: flex; gap: 2px; padding: 10px 22px 0; }
+.ntab { padding: 7px 15px; border-radius: 6px 6px 0 0; background: #d0dcec; color: #1F4E79; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+.ntab.active { background: #fff; }
+.panel { display: none; background: #fff; margin: 0 22px 24px; border-radius: 0 8px 8px 8px; padding: 18px; box-shadow: 0 1px 5px rgba(0,0,0,.08); }
+.panel.active { display: block; }
+
+/* ---- CARDS ---- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.card { background: #f0f5fc; border-radius: 8px; padding: 11px 13px; }
+.card-lbl { font-size: 11px; color: #666; margin-bottom: 3px; }
+.card-val { font-size: 18px; font-weight: 700; color: #1F4E79; }
+.card-sub { font-size: 11px; color: #888; margin-top: 2px; }
+
+/* ---- CHARTS ---- */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.cbox { background: #f8fbff; border: 1px solid #dde8f5; border-radius: 8px; padding: 13px; }
+.cbox h3, .cfull h3 { font-size: 12px; font-weight: 700; color: #1F4E79; margin-bottom: 9px; }
+.cfull { background: #f8fbff; border: 1px solid #dde8f5; border-radius: 8px; padding: 13px; margin-bottom: 12px; }
+.sec { font-size: 11px; font-weight: 700; color: #1F4E79; text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 8px; padding-left: 8px; border-left: 3px solid #2E75B6; }
+
+/* ---- AVAILABILITY TABLE ---- */
+.at { width: 100%; border-collapse: collapse; font-size: 12px; }
+.at th { background: #1F4E79; color: #fff; padding: 6px 9px; text-align: center; }
+.at td { padding: 5px 9px; text-align: center; border-bottom: 1px solid #e8eef6; }
+.at tr:nth-child(even) td { background: #f4f8fd; }
+.bw { background: #dde8f4; border-radius: 6px; height: 7px; width: 90px; margin: auto; }
+.bf { height: 7px; border-radius: 6px; }
+
+/* ---- PERCENTILE PILLS ---- */
+.pp { display: inline-block; padding: 2px 8px; border-radius: 9px; font-size: 11px; font-weight: 700; margin: 1px; }
+.p50 { background: #d4edda; color: #155724; }
+.p75 { background: #fff0b3; color: #5c4400; }
+.p90 { background: #ffe0b2; color: #6b3a00; }
+
+/* ---- LEGEND ---- */
+.leg { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 7px; }
+.li  { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #444; }
+.lsq { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+
+/* ---- MONTH SEL ---- */
+.ms { padding: 4px 12px; border: 1.5px solid #bcd; border-radius: 12px; background: #fff; color: #1F4E79; font-size: 11px; font-weight: 600; cursor: pointer; }
+.ms.active { background: #2E75B6; color: #fff; border-color: #2E75B6; }
+
+/* ---- ANNUAL BOX ---- */
+.annual-box { background: #f0f5fc; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.annual-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.ac { border-radius: 8px; padding: 10px 13px; }
+.ac-lbl { font-size: 10px; margin-bottom: 2px; font-weight: 700; }
+.ac-sub { font-size: 11px; opacity: .7; }
+.ac-val { font-size: 19px; font-weight: 700; margin-top: 2px; }
+
+/* ---- EMPTY STATE ---- */
+.empty-state { text-align: center; padding: 50px 20px; color: #aaa; }
+.empty-state h2 { font-size: 15px; margin-bottom: 8px; color: #888; }
+.empty-state p  { font-size: 13px; }
+
+/* ---- MODAL ---- */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 10px; padding: 24px; width: 340px; box-shadow: 0 4px 20px rgba(0,0,0,.2); }
+.modal h3 { font-size: 15px; color: #1F4E79; margin-bottom: 14px; }
+.modal label { font-size: 12px; color: #555; display: block; margin-bottom: 4px; }
+.modal input { width: 100%; border: 1px solid #bcd; border-radius: 5px; padding: 7px 10px; font-size: 13px; margin-bottom: 14px; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<!-- MODAL: add station -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>Nuova Stazione</h3>
+    <label>Codice stazione (es. G243044)</label>
+    <input type="text" id="newStationId" placeholder="G243044">
+    <label>Nome descrittivo (opzionale)</label>
+    <input type="text" id="newStationName" placeholder="Stazione Nord">
+    <label>Località (opzionale)</label>
+    <input type="text" id="newStationLocation" placeholder="es. Durrà, Palermo...">
+    <div class="modal-btns">
+      <button class="btn" style="background:#888;" onclick="closeModal()">Annulla</button>
+      <button class="btn" onclick="confirmNewStation()">Aggiungi</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div>
+    <h1>Dashboard Multi-Stazione — Analisi Meteo Avanzata</h1>
+    <p>Disponibilità del dato · P50 / P75 / P90 (eccedenza) · Profilo Orario · Media Annuale Apr–Mar</p>
+  </div>
+  <div id="badge">1 stazione attiva</div>
+</header>
+
+<!-- STATION TABS -->
+<div class="station-bar" id="stationBar">
+  <!-- populated by JS -->
+  <button class="add-station-btn" onclick="openModal()">＋ Aggiungi stazione</button>
+</div>
+
+<!-- IMPORT BAR -->
+<div class="import-bar" id="importBar">
+  <!-- populated by JS -->
+</div>
+
+<div class="warn" id="warnBar"></div>
+
+<!-- CONTENT TABS -->
+<div class="nav">
+  <button class="ntab active" onclick="goTab('disponibilita',this)">Disponibilità</button>
+  <button class="ntab" onclick="goTab('percentili',this)">P50 / P75 / P90</button>
+  <button class="ntab" onclick="goTab('orario',this)">Profilo Orario</button>
+  <button class="ntab" onclick="goTab('mensile',this)">Confronto Mensile</button>
+  <button class="ntab" onclick="goTab('aep',this)">⚡ AEP Simulazione</button>
+</div>
+
+<div class="panel active" id="p-disponibilita">
+  <div class="cards" id="avail-cards"></div>
+  <div class="row2">
+    <div class="cbox"><h3>Disponibilità mensile (%)</h3><div style="position:relative;height:210px"><canvas id="cAvailBar"></canvas></div></div>
+    <div class="cbox"><h3>Dettaglio per mese</h3><div id="availTable"></div></div>
+  </div>
+  <div class="cfull"><h3>Disponibilità giornaliera</h3><div style="position:relative;height:130px"><canvas id="cAvailDaily"></canvas></div></div>
+</div>
+
+<div class="panel" id="p-percentili">
+  <div class="annual-box" id="annual-box"></div>
+  <div class="sec">Velocità Vento TOP 92 m — eccedenza mensile</div>
+  <div class="cards" id="wpercCards"></div>
+  <div class="row2">
+    <div class="cbox"><h3>P50, P75, P90 — vento (m/s)</h3><div style="position:relative;height:230px"><canvas id="cPercWind"></canvas></div></div>
+    <div class="cbox">
+      <h3>Distribuzione fasce velocità</h3>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;" id="distSel"></div>
+      <div style="position:relative;height:185px"><canvas id="cDist"></canvas></div>
+    </div>
+  </div>
+  <div class="sec">Temperatura — eccedenza mensile (esclusi mesi anomali)</div>
+  <div class="cards" id="tpercCards"></div>
+  <div class="cfull"><h3>P50, P75, P90 — temperatura (°C)</h3><div style="position:relative;height:190px"><canvas id="cPercTemp"></canvas></div></div>
+</div>
+
+<div class="panel" id="p-orario">
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+    <label style="font-size:12px;color:#555;">Variabile:</label>
+    <select id="hVar" onchange="renderHourly()" style="padding:4px 9px;border:1px solid #bcd;border-radius:5px;font-size:12px;color:#1F4E79;background:#fff;">
+      <option value="wind">Vento medio (m/s)</option>
+      <option value="temp">Temperatura (°C)</option>
+      <option value="hum">Umidità (%)</option>
+      <option value="pres">Pressione (hPa)</option>
+    </select>
+  </div>
+  <div class="cfull">
+    <h3 id="hTitle">Profilo orario medio — Vento medio (m/s)</h3>
+    <div class="leg" id="hLeg"></div>
+    <div style="position:relative;height:250px"><canvas id="cHourly"></canvas></div>
+  </div>
+</div>
+
+<div class="panel" id="p-mensile">
+  <div class="row2">
+    <div class="cbox"><h3>Vento medio mensile + P90 (m/s)</h3><div style="position:relative;height:190px"><canvas id="cWindM"></canvas></div></div>
+    <div class="cbox"><h3>Temperatura mensile — media, max, min (°C)</h3><div style="position:relative;height:190px"><canvas id="cTempM"></canvas></div></div>
+  </div>
+  <div class="row2">
+    <div class="cbox"><h3>Umidità media mensile (%)</h3><div style="position:relative;height:190px"><canvas id="cHumM"></canvas></div></div>
+    <div class="cbox"><h3>Pressione media mensile (hPa)</h3><div style="position:relative;height:190px"><canvas id="cPresM"></canvas></div></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CONSTANTS & GLOBALS
+// ============================================================
+var ANN_SEQ = ["2025-04","2025-05","2025-06","2025-07","2025-08","2025-09",
+               "2025-10","2025-11","2025-12","2026-01","2026-02","2026-03"];
+var MN = {"01":"Gen","02":"Feb","03":"Mar","04":"Apr","05":"Mag","06":"Giu",
+          "07":"Lug","08":"Ago","09":"Set","10":"Ott","11":"Nov","12":"Dic"};
+var CLR_POOL = ["#2E75B6","#1D9E75","#BA7517","#8e44ad","#16a085","#e67e22","#c0392b","#2c3e50"];
+var CHARTS = {};
+var distMonth = "2025-04";
+var currentStation = "G243043";
+
+// ============================================================
+//  STATIONS REGISTRY
+//  Each station: { id, name, clr_pool_idx, data: { "YYYY-MM": monthObj } }
+// ============================================================
+var STATIONS = {
+  "G243043": {
+    id: "G243043", name: "G243043", location: "Durrà", clrIdx: 0,
+    data: {
+      "2025-03": {
+        label:"Mar 2025", anomalous:true,
+        avail:{exp:1528,actual:1528,pct:100,gaps:0,gap_min:0},
+        wind:{avg:9.17,max:17.48,p50:9.098,p75:6.599,p90:3.906,
+          hourly:[9.689,9.718,10.278,10.016,10.235,9.793,9.342,9.179,9.715,8.531,8.498,8.495,8.836,9.554,9.471,9.04,8.484,8.733,8.894,8.599,8.375,8.504,9.457,9.018]},
+        temp:{avg:null,max:null,min:null,p50:null,p75:null,p90:null,hourly:Array(24).fill(null)},
+        hum:{avg:75.2,hourly:[75.332,75.652,75.438,76.052,75.316,74.999,75.262,75.048,73.195,66.874,71.067,73.666,72.968,74.028,72.766,75.814,76.764,76.338,76.761,76.471,76.223,76.665,77.169,77.947]},
+        pres:{avg:null,hourly:Array(24).fill(null)},
+        bins:{labels:["0-1","1-2","2-3","3-4","4-5","5-6","6-7","7-8","8-9","9-10","10-12","12-14","14-16","16-18","18+"],
+              pct:[0.9,2.5,2.7,4.3,4.2,5.8,9.0,10.3,9.5,9.0,13.9,16.7,10.3,1.0,0.0]}
+      },
+      "2025-04": {
+        label:"Apr 2025", anomalous:false,
+        avail:{exp:4320,actual:4320,pct:100,gaps:0,gap_min:0},
+        wind:{avg:5.864,max:17.775,p50:5.259,p75:3.247,p90:1.981,
+          hourly:[5.508,5.585,5.444,5.57,5.445,5.358,5.458,4.781,4.537,4.764,5.463,5.914,6.667,6.846,6.724,6.829,6.937,6.594,6.155,5.864,6.001,6.318,6.12,5.861]},
+        temp:{avg:13.89,max:21.71,min:6.45,p50:13.746,p75:11.81,p90:10.505,
+          hourly:[11.861,11.814,11.849,11.869,11.808,11.756,12.107,13.259,14.617,15.757,16.556,16.698,16.651,16.633,16.33,16.046,15.442,14.865,13.864,13.211,12.92,12.686,12.475,12.265]},
+        hum:{avg:70.3,hourly:[75.569,74.476,73.26,72.825,72.861,72.778,72.57,70.008,66.061,62.883,61.604,62.067,62.729,63.706,65.749,67.285,69.291,70.264,73.546,75.271,77.114,75.956,75.331,75.017]},
+        pres:{avg:969.8,hourly:[969.967,969.708,969.495,969.293,969.233,969.421,969.726,969.94,970.148,970.439,970.485,970.295,969.981,969.689,969.371,969.188,969.086,969.171,969.386,969.886,970.344,970.553,970.655,970.639]},
+        bins:{labels:["0-1","1-2","2-3","3-4","4-5","5-6","6-7","7-8","8-9","9-10","10-12","12-14","14-16","16-18","18+"],
+              pct:[2.8,7.4,11.6,12.9,12.6,11.0,9.5,7.3,6.3,5.8,6.5,4.0,2.2,0.2,0.0]}
+      },
+      "2025-05": {
+        label:"Mag 2025", anomalous:false,
+        avail:{exp:4464,actual:4464,pct:100,gaps:0,gap_min:0},
+        wind:{avg:5.854,max:18.022,p50:5.393,p75:3.75,p90:2.483,
+          hourly:[5.81,5.95,5.553,5.465,5.379,5.696,5.585,4.738,4.486,4.745,5.363,5.519,6.098,6.744,6.82,6.976,6.451,6.314,6.406,6.611,6.513,6.008,5.705,5.568]},
+        temp:{avg:18.54,max:27.48,min:12.65,p50:18.339,p75:16.233,p90:14.76,
+          hourly:[16.064,15.98,15.796,15.571,15.598,15.834,16.633,17.934,19.405,20.579,21.24,21.72,21.822,21.556,21.56,21.288,20.955,20.38,19.319,18.114,17.424,17.002,16.716,16.375]},
+        hum:{avg:60.1,hourly:[67.998,67.999,67.924,68.096,66.748,65.486,63.185,60.155,55.623,51.969,51.991,51.822,52.48,53.707,52.921,53.44,54.845,56.33,59.599,61.889,62.988,64.653,65.045,66.466]},
+        pres:{avg:969.4,hourly:[969.787,969.438,969.254,969.13,969.077,969.23,969.41,969.636,969.848,969.875,969.961,969.761,969.573,969.381,969.017,968.743,968.69,968.63,968.782,969.081,969.662,970.107,970.191,970.149]},
+        bins:{labels:["0-1","1-2","2-3","3-4","4-5","5-6","6-7","7-8","8-9","9-10","10-12","12-14","14-16","16-18","18+"],
+              pct:[0.9,5.4,9.3,13.0,15.7,13.2,10.6,9.8,8.2,5.2,5.7,2.2,0.9,0.1,0.0]}
+      },
+      "2025-06": {
+        label:"Giu 2025", anomalous:false,
+        avail:{exp:4320,actual:4320,pct:100,gaps:0,gap_min:0},
+        wind:{avg:4.675,max:14.23,p50:4.538,p75:2.95,p90:1.789,
+          hourly:[4.205,4.105,4.168,4.022,4.353,4.294,4.252,3.572,2.98,3.316,4.261,4.946,5.637,5.926,5.95,5.693,5.61,5.169,5.026,5.156,5.384,4.914,4.649,4.607]},
+        temp:{avg:24.44,max:34.95,min:14.3,p50:24.145,p75:22.166,p90:19.47,
+          hourly:[21.724,21.515,21.466,21.528,21.388,21.719,22.688,24.309,25.998,26.914,27.071,27.603,27.562,27.51,27.434,27.335,27.174,26.553,25.313,23.639,22.935,22.652,22.381,22.167]},
+        hum:{avg:49.9,hourly:[57.502,56.862,55.952,55.093,54.762,53.472,51.472,47.768,44.134,43.429,42.558,41.101,40.7,41.334,41.674,42.872,43.385,46.197,51.671,56.209,56.574,56.993,57.605,57.928]},
+        pres:{avg:972.3,hourly:[972.564,972.27,971.957,971.821,971.868,972.084,972.363,972.673,972.966,973.06,973.077,972.948,972.684,972.431,972.273,972.1,971.784,971.641,971.695,971.756,972.151,972.587,972.715,972.629]},
+        bins:{labels:["0-1","1-2","2-3","3-4","4-5","5-6","6-7","7-8","8-9","9-10","10-12","12-14","14-16","16-18","18+"],
+              pct:[3.3,9.1,13.2,15.0,19.0,16.2,9.7,5.9,3.3,2.0,2.8,0.6,0.0,0.0,0.0]}
+      }
+    }
+  }
+};
+
+// ============================================================
+//  UTILS
+// ============================================================
+function S()    { return STATIONS[currentStation]; }
+function D()    { return S().data; }
+function months(){ return Object.keys(D()).sort(); }
+function fv(v,d){ return (v!=null&&!isNaN(v)) ? parseFloat(v).toFixed(d!=null?d:2) : "—"; }
+function avC(p) { return p>=98?"#1D9E75":p>=90?"#e6a817":"#c0392b"; }
+function clr(m) {
+  var pool = CLR_POOL;
+  var mkeys = months();
+  return pool[mkeys.indexOf(m) % pool.length];
+}
+function mean(arr){
+  var a=arr.filter(function(v){return v!=null&&!isNaN(v);});
+  return a.length ? Math.round(a.reduce(function(s,v){return s+v;},0)/a.length*100)/100 : null;
+}
+function mk(id,cfg){
+  if(CHARTS[id]){ CHARTS[id].destroy(); }
+  var el=document.getElementById(id);
+  if(!el) return;
+  CHARTS[id]=new Chart(el,cfg);
+}
+function card(lbl,val,sub){
+  return '<div class="card"><div class="card-lbl">'+lbl+'</div><div class="card-val">'+val+'</div>'+(sub?'<div class="card-sub">'+sub+'</div>':'')+'</div>';
+}
+
+// ============================================================
+//  STATION BAR
+// ============================================================
+function renderStationBar(){
+  var bar = document.getElementById("stationBar");
+  var addBtn = bar.querySelector(".add-station-btn");
+  // remove old tabs
+  bar.querySelectorAll(".stab").forEach(function(b){ b.remove(); });
+  Object.keys(STATIONS).forEach(function(sid){
+    var st = STATIONS[sid];
+    var hasData = Object.keys(st.data).length > 0;
+    var btn = document.createElement("button");
+    btn.className = "stab" + (sid===currentStation?" active":"") + (!hasData?" empty":"");
+    btn.textContent = st.name + (st.location ? " — " + st.location : "") + (hasData ? "" : " (vuota)");
+    btn.onclick = function(){ currentStation=sid; renderStationBar(); renderAll(); };
+    bar.insertBefore(btn, addBtn);
+  });
+  // badge
+  var total = Object.keys(STATIONS).reduce(function(s,sid){
+    return s + Object.values(STATIONS[sid].data).reduce(function(s2,m){return s2+m.avail.actual;},0);
+  },0);
+  document.getElementById("badge").textContent =
+    Object.keys(STATIONS).length + " stazioni · " + total.toLocaleString() + " misurazioni";
+}
+
+// ============================================================
+//  IMPORT BAR
+// ============================================================
+function renderImportBar(){
+  var st = S();
+  var mkeys = months();
+  var tags = mkeys.map(function(m){ return '<span class="ftag">📄 '+D()[m].label+'</span>'; }).join("");
+  document.getElementById("importBar").innerHTML =
+    '<button class="btn" onclick="document.getElementById(\'fi\').click()">+ Aggiungi CSV</button>'+
+    '<input type="file" id="fi" multiple accept=".csv" style="display:none" onchange="handleFiles(this.files)">'+
+    '<span style="font-size:11px;color:#999;">Stazione attiva: <b style="color:#1F4E79;">'+st.name+'</b>'+(st.location?' <span style="color:#888;">— '+st.location+'</span>':'')+' </span>'+
+    (tags ? '<div style="display:flex;gap:5px;flex-wrap:wrap;">'+tags+'</div>' : '<span style="font-size:11px;color:#aaa;font-style:italic;">Nessun dato — importa CSV per iniziare</span>');
+
+  var warn = "";
+  if(D()["2025-03"]) warn = '⚠ <b>Marzo 2025</b>: sensore in calibrazione — temperatura e pressione anomale. Escluso dalla media annuale.&nbsp;|&nbsp;';
+  warn += '<b>Convenzione eccedenza</b>: P50 &gt; P75 &gt; P90 — il P90 è superato il 90% del tempo (scenario conservativo).';
+  document.getElementById("warnBar").innerHTML = warn;
+}
+
+// ============================================================
+//  MODAL
+// ============================================================
+function openModal(){
+  document.getElementById("newStationId").value="";
+  document.getElementById("newStationName").value="";
+  document.getElementById("modalOverlay").classList.add("open");
+  document.getElementById("newStationId").focus();
+}
+function closeModal(){
+  document.getElementById("modalOverlay").classList.remove("open");
+}
+function confirmNewStation(){
+  var sid = document.getElementById("newStationId").value.trim().toUpperCase();
+  var sname = document.getElementById("newStationName").value.trim() || sid;
+  var sloc  = document.getElementById("newStationLocation").value.trim();
+  if(!sid){ alert("Inserisci un codice stazione."); return; }
+  if(STATIONS[sid]){ alert("Stazione "+sid+" già presente."); return; }
+  STATIONS[sid]={ id:sid, name:sname, location:sloc||null, clrIdx:Object.keys(STATIONS).length, data:{} };
+  currentStation=sid;
+  closeModal();
+  renderStationBar();
+  renderAll();
+}
+document.getElementById("modalOverlay").addEventListener("click", function(e){
+  if(e.target===this) closeModal();
+});
+
+// ============================================================
+//  TABS
+// ============================================================
+function goTab(id,btn){
+  document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
+  document.querySelectorAll(".ntab").forEach(function(b){b.classList.remove("active");});
+  document.getElementById("p-"+id).classList.add("active");
+  btn.classList.add("active");
+  if(!months().length) return;
+  setTimeout(function(){
+    if(id==="percentili") buildPerc();
+    else if(id==="orario")  renderHourly();
+    else if(id==="mensile") buildMensile();
+    else if(id==="disponibilita") buildAvail();
+  }, 30);
+}
+
+// ============================================================
+//  RENDER ALL
+// ============================================================
+function renderAll(){
+  renderImportBar();
+  var m = months();
+  if(!m.length){
+    ["avail-cards","availTable","wpercCards","tpercCards","annual-box","distSel","hLeg"].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.innerHTML="";
+    });
+    document.getElementById("avail-cards").innerHTML='<div class="empty-state"><h2>Nessun dato per questa stazione</h2><p>Usa il pulsante "+ Aggiungi CSV" per importare i dati.</p></div>';
+    ["cAvailBar","cAvailDaily","cPercWind","cDist","cPercTemp","cHourly","cWindM","cTempM","cHumM","cPresM"].forEach(function(id){
+      if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}
+    });
+    return;
+  }
+  buildAvail();
+  buildPerc();
+  buildMensile();
+  renderHourly();
+}
+
+// ============================================================
+//  DISPONIBILITA
+// ============================================================
+function buildAvail(){
+  var M=months();
+  var totR=0,totE=0,totG=0;
+  M.forEach(function(m){totR+=D()[m].avail.actual;totE+=D()[m].avail.exp;totG+=D()[m].avail.gaps;});
+  var gp=Math.round(totR/totE*1000)/10;
+  document.getElementById("avail-cards").innerHTML=
+    card("Misurazioni totali",totR.toLocaleString(),"su "+totE.toLocaleString()+" attese")+
+    card("Disponibilità globale",gp+"%",totG+" buchi rilevati")+
+    card("Mesi analizzati",M.length,M.map(function(m){return D()[m].label;}).join(" · "))+
+    card("Periodo",D()[M[0]].label,"→ "+D()[M[M.length-1]].label);
+
+  var pcts=M.map(function(m){return D()[m].avail.pct;});
+  mk("cAvailBar",{type:"bar",
+    data:{labels:M.map(function(m){return D()[m].label;}),
+          datasets:[{data:pcts,backgroundColor:pcts.map(avC),borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:100,title:{display:true,text:"%"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+
+  var html='<table class="at"><thead><tr><th>Mese</th><th>Rec.</th><th>Attesi</th><th>Disp.</th><th>Buchi</th></tr></thead><tbody>';
+  M.forEach(function(m){
+    var a=D()[m].avail;
+    html+='<tr><td><b>'+D()[m].label+'</b></td><td>'+a.actual.toLocaleString()+'</td><td>'+a.exp.toLocaleString()+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:5px;justify-content:center;">'+
+      '<div class="bw"><div class="bf" style="width:'+a.pct+'%;background:'+avC(a.pct)+'"></div></div>'+
+      '<b style="color:'+avC(a.pct)+'">'+a.pct+'%</b></div></td>'+
+      '<td>'+(a.gaps||"—")+'</td></tr>';
+  });
+  html+="</tbody></table>";
+  document.getElementById("availTable").innerHTML=html;
+
+  var dl=[],dv=[],dc=[];
+  M.forEach(function(m){
+    var days=D()[m].avail.actual===1528?11:(m==="2025-05"?31:30);
+    for(var d=1;d<=days;d++){
+      dl.push(d===1?D()[m].label.slice(0,3):(d%5===0?""+d:""));
+      dv.push(100); dc.push(avC(100));
+    }
+  });
+  mk("cAvailDaily",{type:"bar",
+    data:{labels:dl,datasets:[{data:dv,backgroundColor:dc,borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(){return "100%";}}}},
+      scales:{y:{min:0,max:100,title:{display:true,text:"%"},ticks:{font:{size:9}}},
+              x:{ticks:{font:{size:8},autoSkip:false,maxRotation:45}}}}});
+}
+
+// ============================================================
+//  ANNUAL AVERAGE
+// ============================================================
+function buildAnnual(){
+  var loaded=ANN_SEQ.filter(function(m){return D()[m]&&!D()[m].anomalous;});
+  var missing=ANN_SEQ.filter(function(m){return !D()[m]||D()[m].anomalous;});
+  var pct=Math.round(loaded.length/12*100);
+  var aP50=mean(loaded.map(function(m){return D()[m].wind.p50;}));
+  var aP75=mean(loaded.map(function(m){return D()[m].wind.p75;}));
+  var aP90=mean(loaded.map(function(m){return D()[m].wind.p90;}));
+  var barC=pct>=100?"#1D9E75":pct>=50?"#e6a817":"#2E75B6";
+  var txtC=pct>=100?"#0d6e3a":pct>=50?"#b8860b":"#c0392b";
+  var html=
+    '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;">'+
+    '<span style="font-size:13px;font-weight:700;color:#1F4E79;">Media Annuale &nbsp;Apr 2025 – Mar 2026</span>'+
+    '<span style="background:#e0e8f4;border-radius:10px;padding:2px 9px;font-size:11px;color:#1F4E79;font-weight:600;">'+loaded.length+'/12 mesi</span>'+
+    '<span style="font-size:12px;font-weight:700;color:'+txtC+'">'+pct+'% completato</span>'+
+    '</div>'+
+    '<div style="background:#dde8f4;border-radius:8px;height:8px;margin-bottom:13px;">'+
+    '<div style="background:'+barC+';width:'+pct+'%;height:8px;border-radius:8px;"></div></div>'+
+    '<div class="annual-grid">'+
+    '<div class="ac" style="background:#d4edda;color:#155724;"><div class="ac-lbl">P50 MEDIO ANNUALE</div><div class="ac-sub">superato il 50% del tempo</div><div class="ac-val">'+(aP50!=null?aP50+" m/s":"— (dati insuff.)")+'</div></div>'+
+    '<div class="ac" style="background:#fff0b3;color:#5c4400;"><div class="ac-lbl">P75 MEDIO ANNUALE</div><div class="ac-sub">superato il 75% del tempo</div><div class="ac-val">'+(aP75!=null?aP75+" m/s":"— (dati insuff.)")+'</div></div>'+
+    '<div class="ac" style="background:#ffe0b2;color:#6b3a00;"><div class="ac-lbl">P90 MEDIO ANNUALE</div><div class="ac-sub">superato il 90% del tempo</div><div class="ac-val">'+(aP90!=null?aP90+" m/s":"— (dati insuff.)")+'</div></div>'+
+    '</div>';
+  if(missing.length){
+    html+='<div style="font-size:11px;color:#777;margin-top:9px;border-top:1px solid #cde0f0;padding-top:7px;">Mesi mancanti: <b>'+
+      missing.map(function(m){return (MN[m.slice(5,7)]||m.slice(5,7))+" "+m.slice(0,4);}).join(", ")+
+      '</b> — si aggiorna automaticamente ad ogni importazione.</div>';
+  } else {
+    html+='<div style="font-size:11px;color:#0d6e3a;font-weight:600;margin-top:8px;">✓ Anno completo — media su tutti i 12 mesi.</div>';
+  }
+  document.getElementById("annual-box").innerHTML=html;
+}
+
+// ============================================================
+//  PERCENTILI
+// ============================================================
+function buildPerc(){
+  buildAnnual();
+  var M=months();
+
+  var whtml="";
+  M.forEach(function(m){
+    var w=D()[m].wind;
+    whtml+=card(D()[m].label,
+      '<span class="pp p50">P50: '+fv(w.p50)+'</span> '+
+      '<span class="pp p75">P75: '+fv(w.p75)+'</span> '+
+      '<span class="pp p90">P90: '+fv(w.p90)+'</span>',
+      "Media: "+fv(w.avg)+" · Max: "+fv(w.max)+" m/s");
+  });
+  document.getElementById("wpercCards").innerHTML=whtml;
+
+  mk("cPercWind",{type:"line",
+    data:{labels:M.map(function(m){return D()[m].label;}),
+      datasets:[
+        {label:"P50 (50%)",data:M.map(function(m){return D()[m].wind.p50;}),borderColor:"#1D9E75",tension:0.4,fill:false,pointRadius:6,pointBackgroundColor:"#1D9E75",borderWidth:2.5},
+        {label:"P75 (75%)",data:M.map(function(m){return D()[m].wind.p75;}),borderColor:"#d4a017",tension:0.4,fill:false,pointRadius:6,pointBackgroundColor:"#d4a017",borderWidth:2,borderDash:[3,2]},
+        {label:"P90 (90%)",data:M.map(function(m){return D()[m].wind.p90;}),borderColor:"#BA7517",tension:0.4,fill:false,pointRadius:6,pointBackgroundColor:"#BA7517",borderWidth:2.5,borderDash:[6,3]}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},
+      scales:{y:{min:0,title:{display:true,text:"m/s"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+
+  if(!distMonth||!D()[distMonth]) distMonth=M[0];
+  document.getElementById("distSel").innerHTML=M.map(function(m){
+    return '<button class="ms'+(m===distMonth?" active":"")+'" onclick="selDist(\''+m+'\',this)">'+D()[m].label+'</button>';
+  }).join("");
+  renderDist();
+
+  var vM=M.filter(function(m){return !D()[m].anomalous;});
+  var thtml="";
+  vM.forEach(function(m){
+    var t=D()[m].temp;
+    thtml+=card(D()[m].label,
+      '<span class="pp p50">P50: '+fv(t.p50,1)+'</span> '+
+      '<span class="pp p75">P75: '+fv(t.p75,1)+'</span> '+
+      '<span class="pp p90">P90: '+fv(t.p90,1)+'</span>',
+      "Media: "+fv(t.avg,1)+" · Max: "+fv(t.max,1)+" °C");
+  });
+  document.getElementById("tpercCards").innerHTML=thtml;
+
+  mk("cPercTemp",{type:"line",
+    data:{labels:vM.map(function(m){return D()[m].label;}),
+      datasets:[
+        {label:"P50",data:vM.map(function(m){return D()[m].temp.p50;}),borderColor:"#1D9E75",tension:0.4,fill:false,pointRadius:6,pointBackgroundColor:"#1D9E75",borderWidth:2.5},
+        {label:"P75",data:vM.map(function(m){return D()[m].temp.p75;}),borderColor:"#d4a017",tension:0.4,fill:false,pointRadius:6,pointBackgroundColor:"#d4a017",borderWidth:2,borderDash:[3,2]},
+        {label:"P90",data:vM.map(function(m){return D()[m].temp.p90;}),borderColor:"#D85A30",tension:0.4,fill:false,pointRadius:6,pointBackgroundColor:"#D85A30",borderWidth:2.5,borderDash:[6,3]}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},
+      scales:{y:{title:{display:true,text:"°C"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+}
+
+function selDist(m,btn){
+  distMonth=m;
+  document.querySelectorAll("#distSel .ms").forEach(function(b){b.classList.remove("active");});
+  btn.classList.add("active");
+  renderDist();
+}
+function renderDist(){
+  if(!D()[distMonth]) return;
+  var b=D()[distMonth].bins;
+  mk("cDist",{type:"bar",
+    data:{labels:b.labels,datasets:[{data:b.pct,backgroundColor:clr(distMonth)+"BB",borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{title:{display:true,text:"%"},ticks:{font:{size:9}}},
+              x:{ticks:{font:{size:9},maxRotation:45}}}}});
+}
+
+// ============================================================
+//  HOURLY
+// ============================================================
+var HVARS={
+  wind:{label:"Vento medio (m/s)",unit:"m/s",key:"wind",skip:false},
+  temp:{label:"Temperatura (°C)",unit:"°C",key:"temp",skip:true},
+  hum:{label:"Umidità (%)",unit:"%",key:"hum",skip:false},
+  pres:{label:"Pressione (hPa)",unit:"hPa",key:"pres",skip:true}
+};
+function renderHourly(){
+  var v=document.getElementById("hVar").value;
+  var cfg=HVARS[v];
+  var M=months().filter(function(m){return !(cfg.skip&&D()[m].anomalous);});
+  var hrs=Array.from({length:24},function(_,i){return i+"h";});
+  var ds=M.map(function(m){
+    return {label:D()[m].label,data:D()[m][cfg.key].hourly,
+      borderColor:clr(m),backgroundColor:"transparent",tension:0.4,pointRadius:2,borderWidth:2.5};
+  });
+  document.getElementById("hTitle").textContent="Profilo orario medio — "+cfg.label;
+  document.getElementById("hLeg").innerHTML=M.map(function(m){
+    return '<span class="li"><span class="lsq" style="background:'+clr(m)+'"></span>'+D()[m].label+'</span>';
+  }).join("");
+  mk("cHourly",{type:"line",
+    data:{labels:hrs,datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{title:{display:true,text:cfg.unit},ticks:{font:{size:9}}},
+              x:{ticks:{font:{size:9},autoSkip:false,maxRotation:0}}}}});
+}
+
+// ============================================================
+//  MENSILE
+// ============================================================
+function buildMensile(){
+  var M=months();
+  var vM=M.filter(function(m){return !D()[m].anomalous;});
+  var lb=M.map(function(m){return D()[m].label;});
+  var lv=vM.map(function(m){return D()[m].label;});
+
+  mk("cWindM",{type:"bar",
+    data:{labels:lb,datasets:[
+      {label:"Media (m/s)",data:M.map(function(m){return D()[m].wind.avg;}),backgroundColor:M.map(function(m){return clr(m)+"CC";}),borderRadius:5,order:2},
+      {label:"P90 (m/s)",type:"line",data:M.map(function(m){return D()[m].wind.p90;}),borderColor:"#555",borderDash:[5,3],pointRadius:4,tension:0.3,fill:false,order:1}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:10},boxWidth:11}}},
+      scales:{y:{min:0,title:{display:true,text:"m/s"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+
+  mk("cTempM",{type:"line",
+    data:{labels:lv,datasets:[
+      {label:"Media",data:vM.map(function(m){return D()[m].temp.avg;}),borderColor:"#D85A30",backgroundColor:"rgba(216,90,48,.1)",tension:0.4,fill:true,pointRadius:5},
+      {label:"Max",data:vM.map(function(m){return D()[m].temp.max;}),borderColor:"#c0392b",tension:0.4,fill:false,borderDash:[4,3],pointRadius:4},
+      {label:"Min",data:vM.map(function(m){return D()[m].temp.min;}),borderColor:"#2980b9",tension:0.4,fill:false,borderDash:[4,3],pointRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:10},boxWidth:11}}},
+      scales:{y:{title:{display:true,text:"°C"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+
+  mk("cHumM",{type:"line",
+    data:{labels:lb,datasets:[
+      {label:"Umidità",data:M.map(function(m){return D()[m].hum.avg;}),borderColor:"#2980b9",backgroundColor:"rgba(41,128,185,.1)",tension:0.4,fill:true,pointRadius:5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{min:30,max:90,title:{display:true,text:"%"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+
+  mk("cPresM",{type:"line",
+    data:{labels:lv,datasets:[
+      {label:"Pressione",data:vM.map(function(m){return D()[m].pres.avg;}),borderColor:"#8e44ad",backgroundColor:"rgba(142,68,173,.1)",tension:0.4,fill:true,pointRadius:5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{title:{display:true,text:"hPa"},ticks:{font:{size:10}}},
+              x:{ticks:{font:{size:11}}}}}});
+}
+
+// ============================================================
+//  CSV IMPORT
+// ============================================================
+function handleFiles(files){
+  Array.from(files).forEach(function(f){
+    var r=new FileReader();
+    r.onload=function(e){ importCSV(e.target.result,f.name); };
+    r.readAsText(f);
+  });
+}
+function exceedancePerc(sorted,p){
+  // exceedance p%: value exceeded p% of time = (1-p/100)*100th statistical percentile
+  // P50 exceedance = 50th statistical percentile
+  // P75 exceedance = 25th statistical percentile
+  // P90 exceedance = 10th statistical percentile
+  var statP = 100 - p;
+  var idx = (statP/100)*(sorted.length-1);
+  var lo=Math.floor(idx), hi=Math.ceil(idx);
+  return Math.round((lo===hi ? sorted[lo] : sorted[lo]+(sorted[hi]-sorted[lo])*(idx-lo))*100)/100;
+}
+function importCSV(text,fname){
+  var lines=text.replace(/\r/g,"").split("\n").filter(function(l){return l.trim();});
+  if(lines.length<2){alert("Formato non riconosciuto: "+fname);return;}
+  var firstLine=lines[0];
+  var bySemi=firstLine.split(";");
+  var byComma=firstLine.split(",");
+  var sep=",";
+  if(bySemi.length>byComma.length&&bySemi.some(function(h){return h.trim().toLowerCase()==="datetime";})){sep=";";}
+  else if(!byComma.some(function(h){return h.trim().toLowerCase()==="datetime";})&&bySemi.some(function(h){return h.trim().toLowerCase()==="datetime";})){sep=";";}
+  var hdrs=firstLine.split(sep).map(function(h){return h.trim();});
+  if(hdrs.map(function(h){return h.toLowerCase();}).indexOf("datetime")===-1){alert("Colonna datetime non trovata in "+fname);return;}
+  function findCol(keys){for(var k=0;k<keys.length;k++){for(var i=0;i<hdrs.length;i++){if(hdrs[i].toLowerCase().indexOf(keys[k].toLowerCase())>-1)return i;}}return -1;}
+  var dtIdx=hdrs.map(function(h){return h.toLowerCase();}).indexOf("datetime");
+  var windIdx=findCol(["TOP 92;wind_speed;Avg","wind_speed;Avg (m/s)","wind_speed;avg"]);
+  var tempIdx=findCol(["temperature;Avg (°C)","temperature;avg"]);
+  var humIdx=findCol(["humidity;Avg (%)","humidity;avg"]);
+  var presIdx=findCol(["air_pressure;Avg","air_pressure;avg"]);
+  console.log("CSV sep='"+sep+"' cols="+hdrs.length+" wind="+windIdx+" temp="+tempIdx+" hum="+humIdx+" pres="+presIdx);
+  var byMonth={};
+  for(var i=1;i<lines.length;i++){
+    var v=lines[i].split(sep); if(v.length<5) continue;
+    var dt=v[dtIdx]?v[dtIdx].trim():""; if(!dt) continue;
+    var mk2=dt.slice(0,7);
+    if(!byMonth[mk2]) byMonth[mk2]=[];
+    byMonth[mk2].push({w:windIdx>=0?parseFloat(v[windIdx]):NaN,t:tempIdx>=0?parseFloat(v[tempIdx]):NaN,h:humIdx>=0?parseFloat(v[humIdx]):NaN,p:presIdx>=0?parseFloat(v[presIdx]):NaN,dt:new Date(dt)});
+  }
+  var added=[];
+  var st=S();
+  Object.keys(byMonth).forEach(function(m){
+    if(st.data[m]) return;
+    var rows=byMonth[m];
+    var wind=rows.map(function(r){return r.w;}).filter(function(v){return !isNaN(v)&&v>=0;}).sort(function(a,b){return a-b;});
+    var temp=rows.map(function(r){return r.t;}).filter(function(v){return !isNaN(v)&&v>-5&&v<60;}).sort(function(a,b){return a-b;});
+    var hum=rows.map(function(r){return r.h;}).filter(function(v){return !isNaN(v)&&v>=0&&v<=100;});
+    var pres=rows.map(function(r){return r.p;}).filter(function(v){return !isNaN(v)&&v>900&&v<1100;});
+    function avg(a){return a.length?Math.round(a.reduce(function(s,v){return s+v;},0)/a.length*100)/100:null;}
+    function hAvg(col,filt){return Array.from({length:24},function(_,h){var a2=rows.filter(function(r){return r.dt.getHours()===h&&!isNaN(r[col])&&(!filt||filt(r[col]));}).map(function(r){return r[col];});return a2.length?avg(a2):null;});}
+    var be=[0,1,2,3,4,5,6,7,8,9,10,12,14,16,18,25],cnt=new Array(be.length-1).fill(0);
+    wind.forEach(function(v){for(var j=0;j<be.length-1;j++){if(v>=be[j]&&v<be[j+1]){cnt[j]++;break;}}});
+    var lbl=(MN[m.slice(5,7)]||m.slice(5,7))+" "+m.slice(0,4);
+    st.data[m]={
+      label:lbl, anomalous:false,
+      avail:{exp:rows.length,actual:rows.length,pct:100,gaps:0,gap_min:0},
+      wind:{avg:avg(wind),max:wind.length?wind[wind.length-1]:null,
+        p50:wind.length?exceedancePerc(wind,50):null,
+        p75:wind.length?exceedancePerc(wind,75):null,
+        p90:wind.length?exceedancePerc(wind,90):null,
+        hourly:hAvg("w")},
+      temp:{avg:avg(temp),max:temp.length?temp[temp.length-1]:null,min:temp.length?temp[0]:null,
+        p50:temp.length?exceedancePerc(temp,50):null,
+        p75:temp.length?exceedancePerc(temp,75):null,
+        p90:temp.length?exceedancePerc(temp,90):null,
+        hourly:hAvg("t",function(v){return v>-5&&v<60;})},
+      hum:{avg:avg(hum),hourly:hAvg("h",function(v){return v>=0&&v<=100;})},
+      pres:{avg:avg(pres),hourly:hAvg("p",function(v){return v>900&&v<1100;})},
+      bins:{labels:be.slice(0,-1).map(function(v,i){return v+"-"+be[i+1];}),
+            pct:cnt.map(function(c){return Math.round(c/(wind.length||1)*1000)/10;})}
+    };
+    added.push(lbl);
+  });
+  if(!added.length){alert("Nessun nuovo mese in "+fname+" (già presenti)."); return;}
+  distMonth=Object.keys(st.data).sort()[0];
+  renderStationBar();
+  renderAll();
+  saveData();
+  alert("✓ "+st.name+": importato "+added.join(", ")+"\n💾 Salvato automaticamente.");
+}
+
+// drag & drop
+document.body.addEventListener("dragover",function(e){e.preventDefault();});
+document.body.addEventListener("drop",function(e){e.preventDefault();if(e.dataTransfer.files.length)handleFiles(e.dataTransfer.files);});
+
+
+// ============================================================
+//  AEP SIMULATION
+// ============================================================
+var powerCurve = null; // [{ws, kw}] sorted by ws
+
+function loadPowerCurve(file) {
+  if (!file) return;
+  var r = new FileReader();
+  r.onload = function(e) { parsePowerCurve(e.target.result, file.name); };
+  r.readAsText(file);
+}
+
+function parsePowerCurve(text, fname) {
+  var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim(); });
+  if (lines.length < 2) { alert("Power curve vuota: " + fname); return; }
+
+  // detect separator
+  var sep = lines[0].indexOf(";") > -1 ? ";" : ",";
+  var hdrs = lines[0].split(sep).map(function(h){ return h.trim().toLowerCase(); });
+
+  // find columns: accept wind_speed_ms / wind_speed / ws  and  power_kw / power / p_kw
+  function findCol(names) {
+    for (var i=0; i<names.length; i++) {
+      var idx = hdrs.indexOf(names[i]);
+      if (idx > -1) return idx;
+    }
+    return -1;
+  }
+  var wsCol  = findCol(["wind_speed_ms","wind_speed","ws","v","velocita","velocità","speed"]);
+  var pwrCol = findCol(["power_kw","power","p_kw","kw","potenza","p"]);
+
+  if (wsCol < 0 || pwrCol < 0) {
+    // fallback: assume col 0 = ws, col 1 = kw
+    wsCol = 0; pwrCol = 1;
+  }
+
+  var pts = [];
+  for (var i=1; i<lines.length; i++) {
+    var v = lines[i].split(sep);
+    if (v.length < 2) continue;
+    var ws  = parseFloat(v[wsCol].replace(",","."));
+    var kw  = parseFloat(v[pwrCol].replace(",","."));
+    if (!isNaN(ws) && !isNaN(kw)) pts.push({ws:ws, kw:kw});
+  }
+  if (pts.length < 2) { alert("Power curve: meno di 2 punti validi."); return; }
+  pts.sort(function(a,b){ return a.ws - b.ws; });
+  powerCurve = pts;
+
+  document.getElementById("pcStatus").textContent =
+    "✓ " + fname + " — " + pts.length + " punti, " +
+    "cut-in ≈ " + pts.find(function(p){ return p.kw>0; }).ws.toFixed(1) + " m/s, " +
+    "rated ≈ " + Math.max.apply(null, pts.map(function(p){ return p.kw; })).toFixed(0) + " kW";
+  document.getElementById("turbineMetaRow").style.display = "flex";
+  document.getElementById("aepEmpty").style.display = "none";
+  document.getElementById("aepResults").style.display = "block";
+
+  renderPowerCurveChart();
+  calcAEP();
+}
+
+// Linear interpolation of power at a given wind speed
+function interpPower(ws) {
+  if (!powerCurve || powerCurve.length < 2) return 0;
+  if (ws <= powerCurve[0].ws) return powerCurve[0].kw;
+  if (ws >= powerCurve[powerCurve.length-1].ws) return powerCurve[powerCurve.length-1].kw;
+  for (var i=1; i<powerCurve.length; i++) {
+    if (ws <= powerCurve[i].ws) {
+      var t = (ws - powerCurve[i-1].ws) / (powerCurve[i].ws - powerCurve[i-1].ws);
+      return powerCurve[i-1].kw + t * (powerCurve[i].kw - powerCurve[i-1].kw);
+    }
+  }
+  return 0;
+}
+
+// Wind shear correction (power law)
+function shearCorrect(v, hMeas, hHub, alpha) {
+  alpha = alpha || 0.143; // 1/7 power law default
+  return v * Math.pow(hHub / hMeas, alpha);
+}
+
+function calcAEP() {
+  if (!powerCurve) return;
+  var nT      = parseInt(document.getElementById("nTurbines").value) || 1;
+  var avail   = parseFloat(document.getElementById("plantAvail").value) / 100 || 0.95;
+  var lossF   = 1 - parseFloat(document.getElementById("losses").value) / 100;
+  var hHub    = parseFloat(document.getElementById("hubHeight").value) || 92;
+  var hMeas   = 92; // sensor height TOP 92
+
+  var M = months();
+  var validM = M.filter(function(m){ return !D()[m].anomalous; });
+  if (!validM.length) { alert("Nessun mese valido disponibile per questa stazione."); return; }
+
+  // Build a composite wind frequency distribution from all valid months
+  // Using hourly data (8760 h/year base)
+  // For each month we have hourly averages → estimate h/year weight
+  var HOURS_IN_YEAR = 8760;
+
+  // --- Monthly AEP ---
+  var monthlyMWh = [];
+  var monthlyLabels = [];
+  validM.forEach(function(m) {
+    var daysInMonth = m === "2025-05" ? 31 : 30; // approximate
+    var hoursInMonth = daysInMonth * 24;
+    var hourly = D()[m].wind.hourly;
+    var totalKwh = 0;
+    hourly.forEach(function(vMeas) {
+      if (vMeas == null) return;
+      var vHub = shearCorrect(vMeas, hMeas, hHub);
+      var kw   = interpPower(vHub);
+      totalKwh += kw * 1; // 1 hour
+    });
+    // scale from 24h sample to full month
+    var scaleFactor = hoursInMonth / 24;
+    var mwh = totalKwh * scaleFactor * nT * avail * lossF / 1000;
+    monthlyMWh.push(Math.round(mwh));
+    monthlyLabels.push(D()[m].label);
+  });
+
+  // --- Annual total (extrapolated to 12 months from available data) ---
+  var monthsLoaded = validM.length;
+  var annualRaw    = monthlyMWh.reduce(function(s,v){ return s+v; }, 0);
+  var annualExt    = Math.round(annualRaw / monthsLoaded * 12); // extrapolated to full year
+  var ratedKw      = Math.max.apply(null, powerCurve.map(function(p){ return p.kw; }));
+
+  // Capacity factor from extrapolated AEP
+  var cf = annualExt / (ratedKw * HOURS_IN_YEAR * nT / 1000);
+
+  // --- Bin-based energy contribution ---
+  // Use composite frequency from all valid months
+  var binLabels = D()[validM[0]].bins.labels;
+  var binMidpoints = [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,11,13,15,17,21.5]; // 15 bins
+  // average pct across valid months
+  var avgBinPct = binLabels.map(function(_,i){
+    var vals = validM.map(function(m){ return D()[m].bins.pct[i] || 0; });
+    return vals.reduce(function(s,v){ return s+v; }, 0) / vals.length;
+  });
+  var binEnergyMwh = avgBinPct.map(function(pct, i) {
+    var mid = binMidpoints[i] || binMidpoints[binMidpoints.length-1];
+    var vHub = shearCorrect(mid, hMeas, hHub);
+    var kw   = interpPower(vHub);
+    var hours = pct / 100 * HOURS_IN_YEAR;
+    return Math.round(kw * hours * nT * avail * lossF / 1000);
+  });
+  var annualFromBins = binEnergyMwh.reduce(function(s,v){ return s+v; }, 0);
+
+  // --- P50 / P75 / P90 AEP sensitivity ---
+  // Use exceedance wind speeds to estimate AEP at each percentile
+  function aepAtWs(wsScale) {
+    // scale all hourly data by ratio
+    var totalKwh = 0;
+    validM.forEach(function(m) {
+      var hoursInMonth = (m==="2025-05"?31:30)*24;
+      var scaleFactor = hoursInMonth / 24;
+      D()[m].wind.hourly.forEach(function(v) {
+        if (v == null) return;
+        var vHub = shearCorrect(v * wsScale, hMeas, hHub);
+        totalKwh += interpPower(vHub) * scaleFactor / monthsLoaded * 12;
+      });
+    });
+    return Math.round(totalKwh * nT * avail * lossF / 1000);
+  }
+  var annP50 = mean(validM.map(function(m){ return D()[m].wind.p50; }));
+  var annP75 = mean(validM.map(function(m){ return D()[m].wind.p75; }));
+  var annP90 = mean(validM.map(function(m){ return D()[m].wind.p90; }));
+  var avgWind = mean(validM.map(function(m){ return D()[m].wind.avg; }));
+
+  var aepP50 = annualExt;
+  var aepP75 = avgWind ? aepAtWs(annP75 / avgWind) : null;
+  var aepP90 = avgWind ? aepAtWs(annP90 / avgWind) : null;
+
+  // --- RENDER CARDS ---
+  document.getElementById("aepCards").innerHTML =
+    card("AEP stimato (P50)", (annualExt/1000).toFixed(2)+" GWh/anno", nT+" turbine · "+monthsLoaded+"/12 mesi") +
+    card("AEP da distribuzione", (annualFromBins/1000).toFixed(2)+" GWh/anno", "basato su fasce di frequenza") +
+    card("Capacity Factor", (cf*100).toFixed(1)+"%", "AEP / (Pnom × 8760 h)") +
+    card("Potenza nominale", (ratedKw*nT/1000).toFixed(1)+" MW", nT+" × "+ratedKw.toFixed(0)+" kW");
+
+  // --- Monthly bar ---
+  mk("cAEPMonthly", { type:"bar",
+    data:{ labels:monthlyLabels,
+           datasets:[{ label:"MWh/mese", data:monthlyMWh,
+             backgroundColor: monthlyLabels.map(function(_,i){ return CLR_POOL[i%CLR_POOL.length]+"CC"; }),
+             borderRadius:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{title:{display:true,text:"MWh"},ticks:{font:{size:10}}},
+               x:{ticks:{font:{size:11}}} } }
+  });
+
+  // --- Energy bins ---
+  mk("cEnergyBins", { type:"bar",
+    data:{ labels:binLabels,
+           datasets:[{ label:"MWh/anno", data:binEnergyMwh,
+             backgroundColor:"#2E75B6BB", borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{title:{display:true,text:"MWh/anno"},ticks:{font:{size:9}}},
+               x:{ticks:{font:{size:9},maxRotation:45}} } }
+  });
+
+  // --- Sensitivity P50/P75/P90 ---
+  mk("cAEPSens", { type:"bar",
+    data:{ labels:["P50 (vento mediano)","P75 (75% eccedenza)","P90 (90% eccedenza)"],
+           datasets:[{ label:"AEP stimato (MWh)",
+             data:[aepP50, aepP75, aepP90],
+             backgroundColor:["#1D9E75CC","#d4a017CC","#BA7517CC"],
+             borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        datalabels:{ display:false } },
+      scales:{ y:{ title:{display:true,text:"MWh/anno"}, ticks:{font:{size:10}} },
+               x:{ ticks:{font:{size:11}} } } }
+  });
+}
+
+function renderPowerCurveChart() {
+  if (!powerCurve) return;
+  mk("cPowerCurve", { type:"line",
+    data:{ labels: powerCurve.map(function(p){ return p.ws.toFixed(1)+" m/s"; }),
+           datasets:[{ label:"Potenza (kW)", data: powerCurve.map(function(p){ return p.kw; }),
+             borderColor:"#2E75B6", backgroundColor:"rgba(46,117,182,0.1)",
+             tension:0.4, fill:true, pointRadius:3, borderWidth:2.5 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{ title:{display:true,text:"kW"}, ticks:{font:{size:10}}, min:0 },
+               x:{ ticks:{font:{size:9}, autoSkip:true, maxTicksLimit:12} } } }
+  });
+}
+
+
+function downloadTemplate() {
+  var rows = [
+    "wind_speed_ms,power_kw",
+    "# Template Power Curve - Dashboard Stazioni Meteo",
+    "# Colonne obbligatorie: wind_speed_ms (m/s) e power_kw (kW)",
+    "# Non modificare i nomi delle colonne - il separatore e' la virgola",
+    "# Sostituire i valori di potenza con quelli della propria turbina",
+    "# Esempio basato su turbina generica da 2 MW",
+    "0.0,0",
+    "1.0,0",
+    "2.0,0",
+    "3.0,30",
+    "4.0,105",
+    "5.0,235",
+    "6.0,430",
+    "7.0,695",
+    "8.0,1010",
+    "9.0,1360",
+    "10.0,1690",
+    "11.0,1900",
+    "12.0,1990",
+    "13.0,2000",
+    "14.0,2000",
+    "15.0,2000",
+    "16.0,2000",
+    "17.0,2000",
+    "18.0,2000",
+    "19.0,2000",
+    "20.0,2000",
+    "21.0,2000",
+    "22.0,2000",
+    "23.0,2000",
+    "24.0,2000",
+    "25.0,0"
+  ];
+  var blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement("a");
+  a.href     = url;
+  a.download = "power_curve_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+//  PERSISTENZA — localStorage
+// ============================================================
+var LS_KEY = "meteo_dashboard_v2";
+
+function saveData() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(STATIONS));
+  } catch(e) {
+    console.warn("localStorage non disponibile:", e);
+  }
+}
+
+function loadData() {
+  try {
+    var raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    var saved = JSON.parse(raw);
+    Object.keys(saved).forEach(function(sid) {
+      if (!STATIONS[sid]) {
+        STATIONS[sid] = saved[sid];
+      } else {
+        // Merge mesi non già presenti
+        Object.keys(saved[sid].data || {}).forEach(function(m) {
+          if (!STATIONS[sid].data[m]) STATIONS[sid].data[m] = saved[sid].data[m];
+        });
+        if (saved[sid].location) STATIONS[sid].location = saved[sid].location;
+        if (saved[sid].name && saved[sid].name !== sid) STATIONS[sid].name = saved[sid].name;
+      }
+    });
+    return true;
+  } catch(e) {
+    console.warn("Errore caricamento localStorage:", e);
+    return false;
+  }
+}
+
+function resetData() {
+  if (confirm("Sei sicuro? Tutti i dati importati verranno eliminati dalla memoria del browser.")) {
+    localStorage.removeItem(LS_KEY);
+    location.reload();
+  }
+}
+
+function exportJSON() {
+  var blob = new Blob([JSON.stringify(STATIONS, null, 2)], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "meteo_backup_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importJSON(file) {
+  var r = new FileReader();
+  r.onload = function(e) {
+    try {
+      var saved = JSON.parse(e.target.result);
+      Object.keys(saved).forEach(function(sid) {
+        if (!STATIONS[sid]) STATIONS[sid] = saved[sid];
+        else Object.keys(saved[sid].data||{}).forEach(function(m){
+          if(!STATIONS[sid].data[m]) STATIONS[sid].data[m]=saved[sid].data[m];
+        });
+      });
+      saveData();
+      renderStationBar(); renderAll();
+      alert("✓ Backup ripristinato.");
+    } catch(e) { alert("Errore nel file JSON: " + e.message); }
+  };
+  r.readAsText(file);
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+loadData();
+renderStationBar();
+renderAll();
+</script>
+
+<div class="panel" id="p-aep">
+
+  <!-- Power curve import -->
+  <div style="background:#f0f5fc;border-radius:10px;padding:16px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:3px;">Power Curve — Turbina Eolica</div>
+        <div style="font-size:11px;color:#777;">CSV con colonne: <code>wind_speed_ms</code> e <code>power_kw</code> — separatore virgola o punto e virgola</div>
+      </div>
+      <button class="btn" onclick="document.getElementById('pcFile').click()">📂 Carica Power Curve</button>
+      <input type="file" id="pcFile" accept=".csv" style="display:none" onchange="loadPowerCurve(this.files[0])">
+      <button class="btn" style="background:#1D9E75;" onclick="downloadTemplate()">⬇ Scarica Template CSV</button>
+      <span id="pcStatus" style="font-size:12px;color:#888;font-style:italic;">Nessuna curva caricata</span>
+    </div>
+    <!-- turbine meta -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;" id="turbineMetaRow" style="display:none">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:12px;color:#555;">Turbine installate:</label>
+        <input type="number" id="nTurbines" value="1" min="1" max="500" style="width:70px;padding:4px 8px;border:1px solid #bcd;border-radius:5px;font-size:13px;" onchange="calcAEP()">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:12px;color:#555;">Disponibilità impianto (%):</label>
+        <input type="number" id="plantAvail" value="95" min="1" max="100" style="width:70px;padding:4px 8px;border:1px solid #bcd;border-radius:5px;font-size:13px;" onchange="calcAEP()">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:12px;color:#555;">Perdite (wake+elec.) (%):</label>
+        <input type="number" id="losses" value="10" min="0" max="50" style="width:70px;padding:4px 8px;border:1px solid #bcd;border-radius:5px;font-size:13px;" onchange="calcAEP()">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:12px;color:#555;">Altezza cubo (m):</label>
+        <select id="hubHeight" onchange="calcAEP()" style="padding:4px 8px;border:1px solid #bcd;border-radius:5px;font-size:12px;color:#1F4E79;background:#fff;">
+          <option value="92">92 m (TOP 92 — stesso sensore)</option>
+          <option value="80">80 m</option>
+          <option value="100">100 m</option>
+          <option value="120">120 m</option>
+          <option value="150">150 m</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- AEP results -->
+  <div id="aepEmpty" style="text-align:center;padding:40px;color:#aaa;">
+    <div style="font-size:32px;margin-bottom:8px;">⚡</div>
+    <div style="font-size:15px;color:#888;">Carica una power curve per calcolare l'AEP</div>
+    <div style="font-size:12px;margin-top:6px;">Formato CSV: wind_speed_ms, power_kw</div>
+  </div>
+
+  <div id="aepResults" style="display:none">
+    <div class="cards" id="aepCards"></div>
+    <div class="row2">
+      <div class="cbox">
+        <h3>Power curve importata (kW)</h3>
+        <div style="position:relative;height:220px"><canvas id="cPowerCurve"></canvas></div>
+      </div>
+      <div class="cbox">
+        <h3>Produzione mensile stimata (MWh)</h3>
+        <div style="position:relative;height:220px"><canvas id="cAEPMonthly"></canvas></div>
+      </div>
+    </div>
+    <div class="cfull">
+      <h3>Distribuzione vento × Power curve — contributo energetico per fascia (MWh/anno)</h3>
+      <div style="position:relative;height:200px"><canvas id="cEnergyBins"></canvas></div>
+    </div>
+    <div class="cfull" id="aepSensitivity">
+      <h3>Sensitività AEP — P50 / P75 / P90 (MWh)</h3>
+      <div style="position:relative;height:180px"><canvas id="cAEPSens"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
