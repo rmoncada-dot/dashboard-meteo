@@ -294,31 +294,11 @@ with st.sidebar:
 # ============================================================
 #  HEADER
 # ============================================================
-station_label = current_station or "-"
-
-# Calcola KPI header
-avg_92 = None
-avg_120 = None
-badge_92 = ""
-badge_120 = ""
-shear_note = ""
-if not df_stats.empty:
-    _vs = df_stats[~df_stats.get("anomalous", pd.Series(False, index=df_stats.index))]
-    if not _vs.empty and _vs["wind_avg"].notna().any():
-        avg_92 = round(_vs["wind_avg"].mean(), 2)
-        _sh = _vs["shear_alpha"].dropna().mean() if "shear_alpha" in _vs.columns and _vs["shear_alpha"].notna().any() else 0.143
-        if not _sh or str(_sh) == "nan": _sh = 0.143
-        avg_120 = round(avg_92 * (120/92) ** _sh, 2)
-        badge_92  = f"<span style='background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:20px;font-size:1rem;font-weight:700;margin-right:8px'>&#128168; 92m: {avg_92} m/s</span>"
-        badge_120 = f"<span style='background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:20px;font-size:1rem;font-weight:700'>&#128208; 120m: ~{avg_120} m/s</span>"
-        shear_note = f"<span style='opacity:.6;font-size:0.75rem;margin-left:8px'>(shear={round(_sh,3)})</span>"
-
+station_label = current_station or "—"
 st.markdown(f"""<div style="background:linear-gradient(135deg,#1F4E79,#2E75B6);color:#fff;padding:1.2rem 1.5rem;border-radius:8px;margin-bottom:1rem">
-<h2 style="margin:0 0 8px 0">&#127788; {station_label}</h2>
-<div style="margin-bottom:6px">{badge_92}{badge_120}{shear_note}</div>
-<p style="margin:0;opacity:.7;font-size:0.8rem">Dati da Google Drive - {len(df_stats)} mesi disponibili</p>
+<h2 style="margin:0">🌬️ {station_label}</h2>
+<p style="margin:0;opacity:.8;font-size:.9rem">Dati aggiornati automaticamente da Google Drive · Cloud Run</p>
 </div>""", unsafe_allow_html=True)
-
 
 if df_stats.empty:
     if stations_files:
