@@ -38,11 +38,23 @@ def list_csv_files():
     if not svc:
         return []
     try:
-        res = svc.files().list(
-            q=f"'{DRIVE_FOLDER_ID}' in parents and mimeType='text/csv' and trashed=false",
-            fields="files(id,name,modifiedTime)", orderBy="name"
-        ).execute()
-        return res.get("files", [])
+        all_files = []
+        def search_folder(folder_id):
+            # Cerca CSV in questa cartella
+            res = svc.files().list(
+                q=f"'{folder_id}' in parents and mimeType='text/csv' and trashed=false",
+                fields="files(id,name,modifiedTime)", orderBy="name"
+            ).execute()
+            all_files.extend(res.get("files", []))
+            # Cerca sottocartelle
+            sub = svc.files().list(
+                q=f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                fields="files(id,name)"
+            ).execute()
+            for folder in sub.get("files", []):
+                search_folder(folder["id"])
+        search_folder(DRIVE_FOLDER_ID)
+        return sorted(all_files, key=lambda x: x["name"])
     except Exception as e:
         st.error(f"Errore Drive: {e}")
         return []
