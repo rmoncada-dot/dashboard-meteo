@@ -295,13 +295,22 @@ with st.sidebar:
 #  HEADER
 # ============================================================
 station_label = current_station or "-"
-avg_92 = round(valid_stats["wind_avg"].mean(), 2) if not valid_stats.empty and valid_stats["wind_avg"].notna().any() else None
-avg_shear = valid_stats["shear_alpha"].dropna().mean() if not valid_stats.empty and "shear_alpha" in valid_stats.columns else 0.143
-if not avg_shear or np.isnan(float(avg_shear)): avg_shear = 0.143
-avg_120 = round(avg_92 * (120/92) ** avg_shear, 2) if avg_92 else None
-badge_92  = f"<span style='background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:20px;font-size:1rem;font-weight:700;margin-right:8px'>&#128168; 92m: {avg_92} m/s</span>" if avg_92 else ""
-badge_120 = f"<span style='background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:20px;font-size:1rem;font-weight:700'>&#128208; 120m: ~{avg_120} m/s</span>" if avg_120 else ""
-shear_note = f"<span style='opacity:.6;font-size:0.75rem;margin-left:8px'>(shear a={round(avg_shear,3)})</span>" if avg_120 else ""
+avg_92 = None
+avg_120 = None
+shear_note = ""
+badge_92 = ""
+badge_120 = ""
+
+if not df_stats.empty:
+    vs = df_stats[~df_stats.get("anomalous", pd.Series(False, index=df_stats.index))]
+    if not vs.empty and vs["wind_avg"].notna().any():
+        avg_92 = round(vs["wind_avg"].mean(), 2)
+        avg_shear = vs["shear_alpha"].dropna().mean() if "shear_alpha" in vs.columns and vs["shear_alpha"].notna().any() else 0.143
+        if not avg_shear or np.isnan(float(avg_shear)): avg_shear = 0.143
+        avg_120 = round(avg_92 * (120/92) ** avg_shear, 2)
+        badge_92  = f"<span style='background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:20px;font-size:1rem;font-weight:700;margin-right:8px'>&#128168; 92m: {avg_92} m/s</span>"
+        badge_120 = f"<span style='background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:20px;font-size:1rem;font-weight:700'>&#128208; 120m: ~{avg_120} m/s</span>"
+        shear_note = f"<span style='opacity:.6;font-size:0.75rem;margin-left:8px'>(shear a={round(avg_shear,3)})</span>"
 st.markdown(f"""<div style="background:linear-gradient(135deg,#1F4E79,#2E75B6);color:#fff;padding:1.2rem 1.5rem;border-radius:8px;margin-bottom:1rem">
 <h2 style="margin:0 0 8px 0">&#127788; {station_label}</h2>
 <div style="margin-bottom:6px">{badge_92}{badge_120}{shear_note}</div>
